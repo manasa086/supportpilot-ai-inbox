@@ -19,7 +19,9 @@ export function TicketDetail({ ticketId }: { ticketId: string }) {
   const ticket = data?.ticket;
   if (!ticket) return <div className="pane detail-pane empty-state">Ticket not found.</div>;
 
-  const canTriage = ticket.status === "NEW";
+  // Tickets are auto-triaged on creation now, so this is mainly a
+  // re-triage/retry action (e.g. after editing context, or if auto-triage
+  // failed on creation and left the ticket NEW).
   const canResolve = ticket.status !== "RESOLVED";
 
   return (
@@ -29,11 +31,11 @@ export function TicketDetail({ ticketId }: { ticketId: string }) {
         <div className="detail-actions">
           <button
             className="btn btn-primary btn-sm"
-            disabled={!canTriage || triaging}
+            disabled={triaging}
             onClick={() => triageTicket({ variables: { id: ticket.id } })}
-            title={canTriage ? "Classify with AI and draft a reply" : "Already triaged"}
+            title="Classify with AI and draft a reply"
           >
-            {triaging ? "Triaging…" : "✨ Triage with AI"}
+            {triaging ? "Triaging…" : ticket.suggestion ? "🔁 Re-triage with AI" : "✨ Triage with AI"}
           </button>
           <button
             className="btn btn-secondary btn-sm"

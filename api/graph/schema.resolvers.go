@@ -9,10 +9,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/manasa086/supportpilot-ai-inbox/api/graph/model"
 	"github.com/manasa086/supportpilot-ai-inbox/api/internal/store"
-	"github.com/manasa086/supportpilot-ai-inbox/api/internal/triage"
 )
 
 // Tickets is the resolver for the tickets field.
@@ -47,6 +47,13 @@ func (r *mutationResolver) CreateTicket(ctx context.Context, input model.CreateT
 		}
 		return nil, fmt.Errorf("creating ticket: %w", err)
 	}
+
+	// Auto-triage on creation, best-effort: a classifier hiccup (e.g. a
+	// transient Bedrock error) shouldn't fail ticket creation. The ticket
+	// just stays NEW/untriaged and a rep can retry via triageTicket.
+	if err := r.triageAndSave(ctx, t); err != nil {
+		log.Printf("auto-triage failed for new ticket %q: %v", t.ID, err)
+	}
 	return toTicketModel(t), nil
 }
 
@@ -60,33 +67,8 @@ func (r *mutationResolver) TriageTicket(ctx context.Context, id string) (*model.
 		return nil, fmt.Errorf("loading ticket %q: %w", id, err)
 	}
 
-	account, err := r.Store.GetAccount(ctx, t.AccountID)
-	if err != nil {
-		return nil, fmt.Errorf("loading account %q for ticket %q: %w", t.AccountID, id, err)
-	}
-
-	result, err := r.Classifier.Triage(ctx, triage.Input{
-		Subject:     t.Subject,
-		Body:        t.Body,
-		AccountName: account.Name,
-		AccountPlan: account.Plan,
-	})
-	if err != nil {
+	if err := r.triageAndSave(ctx, t); err != nil {
 		return nil, fmt.Errorf("triaging ticket %q: %w", id, err)
-	}
-
-	t.Category = &result.Category
-	t.Priority = &result.Priority
-	t.Status = "TRIAGED"
-	t.Suggestion = &store.Suggestion{
-		Category:   result.Category,
-		Priority:   result.Priority,
-		Reply:      result.Reply,
-		Confidence: result.Confidence,
-	}
-
-	if err := r.Store.UpdateTicket(ctx, t); err != nil {
-		return nil, fmt.Errorf("saving triage result for ticket %q: %w", id, err)
 	}
 	return toTicketModel(t), nil
 }
