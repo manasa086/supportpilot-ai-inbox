@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SupportPilot API — Go/gqlgen GraphQL server on Lambda behind an API
+  Gateway HTTP API, backed by a single-table DynamoDB design, calling
+  Claude via Amazon Bedrock for ticket triage.
+
+Parameters:
+  BedrockModelId:
+    Type: String
+    Description: >
+      A Bedrock model or cross-region inference profile ID enabled in this
+      account/region for Claude (e.g. from
+      `aws bedrock list-inference-profiles`). No default on purpose — the
+      Bedrock Claude catalog varies by account/region/rollout; verify
+      before deploying. See api/internal/triage/bedrock.go.
+  AllowedOrigins:
+    Type: String
+    Default: "http://localhost:5173"
+    Description: Comma-separated list of allowed CORS origins for the frontend (add the Amplify Hosting URL once deployed).
+
+Globals:
+  Function:
+    Timeout: 15
+    MemorySize: 256
+    Architectures: [arm64]
+
+Resources:
+  SupportPilotTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-tickets"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+
+  SupportPilotApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: !Split [",", !Ref AllowedOrigins]
+        AllowMethods: ["GET", "POST", "OPTIONS"]
+        AllowHeaders: ["content-type", "authorization"]
+
+  SupportPilotFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-api"
+      CodeUri: ../
+      Handler: bootstrap
+      Runtime: provided.al2023
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref SupportPilotTable
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SupportPilotTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: "*"
+      Events:
+        Root:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SupportPilotApi
+            Path: /
+            Method: GET
+        Query:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SupportPilotApi
+            Path: /query
+            Method: ANY
+
+Outputs:
+  ApiUrl:
+    Description: Base URL for the GraphQL API (playground at /, endpoint at /query)
+    Value: !Sub "https://${SupportPilotApi}.execute-api.${AWS::Region}.amazonaws.com"
+  TableName:
+    Value: !Ref SupportPilotTable

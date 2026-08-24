@@ -43,4 +43,9 @@ Stop there for the MVP.
 
 ## Status
 
-🚧 Early scaffolding — schema and resolvers not yet written.
+- ✅ **Saturday (API):** `schema.graphql` written, gqlgen resolvers implemented against a swappable `Store` interface
+  (in-memory for local dev, DynamoDB for prod), AI triage behind a `Classifier` interface (rules-based locally, Bedrock
+  in prod), 30 fake tickets / 5 fake accounts seeded, exercised end-to-end via `go run ./cmd/server` + the GraphQL
+  playground. SAM template for the Lambda/API Gateway/DynamoDB deploy is in [`api/infra/template.yaml`](api/infra/template.yaml)
+  but hasn't been deployed yet (needs AWS credentials + a Bedrock model ID). See [`api/README.md`](api/README.md).
+- ⬜ **Sunday (Web):** React inbox + detail view, wire the deployed API into Apollo Client, deploy to Amplify Hosting.

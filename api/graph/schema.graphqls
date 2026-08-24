@@ -1,0 +1,86 @@
+"""RFC 3339 timestamp, e.g. 2026-08-24T14:00:00Z."""
+scalar DateTime
+
+"""gqlgen built-in directive: forces a Go-generated resolver method instead
+of binding the field directly to a struct field. Used below so Ticket.account,
+Account.tickets, and Account.summary are resolved lazily against the store
+instead of requiring the whole object graph to be preloaded."""
+directive @goField(
+  forceResolver: Boolean
+  name: String
+  omittable: Boolean
+  type: String
+) on INPUT_FIELD_DEFINITION | FIELD_DEFINITION
+
+enum TicketStatus {
+  NEW
+  TRIAGED
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+"""A customer account. In DynamoDB this is the PK=ACCOUNT#id item."""
+type Account {
+  id: ID!
+  name: String!
+  plan: String!
+  seats: Int!
+  createdAt: DateTime!
+  tickets: [Ticket!]! @goField(forceResolver: true)
+  """Lazily-resolved LLM summary of this account's ticket history (stretch goal)."""
+  summary: String @goField(forceResolver: true)
+}
+
+"""The AI-generated triage result for a ticket."""
+type Suggestion {
+  category: String!
+  priority: TicketPriority!
+  reply: String!
+  confidence: Float!
+}
+
+"""A support ticket. In DynamoDB this is the PK=ACCOUNT#id, SK=TICKET#id item."""
+type Ticket {
+  id: ID!
+  account: Account! @goField(forceResolver: true)
+  subject: String!
+  body: String!
+  status: TicketStatus!
+  priority: TicketPriority
+  category: String
+  requesterEmail: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  """Present once triageTicket has been run."""
+  suggestion: Suggestion
+}
+
+input CreateTicketInput {
+  accountId: ID!
+  subject: String!
+  body: String!
+  requesterEmail: String!
+}
+
+type Query {
+  """List tickets, optionally filtered by status and/or priority."""
+  tickets(status: TicketStatus, priority: TicketPriority): [Ticket!]!
+  ticket(id: ID!): Ticket
+  accounts: [Account!]!
+  account(id: ID!): Account
+}
+
+type Mutation {
+  createTicket(input: CreateTicketInput!): Ticket!
+  """Runs the LLM classifier (via Bedrock) on a ticket: sets category, priority,
+  suggestion, and moves status NEW -> TRIAGED."""
+  triageTicket(id: ID!): Ticket!
+  resolveTicket(id: ID!): Ticket!
+}
