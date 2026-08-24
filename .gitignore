@@ -1,0 +1,30 @@
+# Go
+api/**/*.exe
+api/**/*.test
+api/bin/
+api/vendor/
+*.out
+
+# Node / React
+web/node_modules/
+web/dist/
+web/.vite/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# AWS / SAM / CDK
+.aws-sam/
+cdk.out/
+*.zip
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
