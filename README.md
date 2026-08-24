@@ -48,4 +48,8 @@ Stop there for the MVP.
   in prod), 30 fake tickets / 5 fake accounts seeded, exercised end-to-end via `go run ./cmd/server` + the GraphQL
   playground. SAM template for the Lambda/API Gateway/DynamoDB deploy is in [`api/infra/template.yaml`](api/infra/template.yaml)
   but hasn't been deployed yet (needs AWS credentials + a Bedrock model ID). See [`api/README.md`](api/README.md).
-- ⬜ **Sunday (Web):** React inbox + detail view, wire the deployed API into Apollo Client, deploy to Amplify Hosting.
+- ✅ **Sunday (Web):** React (Vite + TS) inbox list / ticket detail / account sidebar built with Apollo Client,
+  wired to the local API and verified end-to-end in-browser (filters, `triageTicket`, `resolveTicket`,
+  `createTicket` all working live). See [`web/README.md`](web/README.md).
+- ⬜ **Not yet done:** deploying the API (SAM) and the frontend (Amplify Hosting) to AWS — both need real
+  AWS credentials and a Bedrock model ID, which weren't available in this session.
